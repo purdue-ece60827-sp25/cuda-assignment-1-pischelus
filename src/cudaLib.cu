@@ -1,5 +1,6 @@
 
 #include "cudaLib.cuh"
+#include "cpuLib.h"
 
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort)
 {
@@ -12,16 +13,92 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort)
 
 __global__ 
 void saxpy_gpu (float* x, float* y, float scale, int size) {
-	//	Insert GPU SAXPY kernel code here
+	// Calculate thread index
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+	// Ensure it's within the bounds
+	if (idx < size)
+		y[idx] = scale * x[idx] + y[idx];
 }
 
 int runGpuSaxpy(int vectorSize) {
+	uint64_t vectorBytes = vectorSize * sizeof(float);
 
 	std::cout << "Hello GPU Saxpy!\n";
 
-	//	Insert code here
-	std::cout << "Lazy, you are!\n";
-	std::cout << "Write code, you must\n";
+	float * x, * y, * z; // z is for verification
+	float * x_d, *y_d; // device vectors
+	float scale = 2.0f;
+
+	// Allocate hosts
+	x = (float*)malloc(vectorBytes);
+	y = (float*)malloc(vectorBytes);
+	z = (float*)malloc(vectorBytes);
+
+	if (x == NULL || y == NULL || z == NULL) {
+		printf("Unable to malloc memory ... Exiting!");
+		return -1;
+	}
+	
+	// Allocate devices
+	gpuErrchk(cudaMalloc(&x_d, vectorBytes));
+	gpuErrchk(cudaMalloc(&y_d, vectorBytes));
+
+	// Initialize hosts
+	vectorInit(x, vectorSize);
+	vectorInit(y, vectorSize);
+
+	#ifndef DEBUG_PRINT_DISABLE
+		printf("\n Adding vectors: \n");
+		printf(" scale = %f\n", scale);
+		printf(" x = { ");
+		for (int i = 0; i < 5; ++i) {
+			printf("%3.4f, ", x[i]);
+		}
+		printf(" ... }\n");
+		printf(" y = { ");
+		for (int i = 0; i < 5; ++i) {
+			printf("%3.4f, ", y[i]);
+		}
+		printf(" ... }\n");
+	#endif
+
+	// Copy host to device
+	gpuErrchk(cudaMemcpy(x_d, x, vectorBytes, cudaMemcpyHostToDevice));
+	gpuErrchk(cudaMemcpy(y_d, y, vectorBytes, cudaMemcpyHostToDevice));
+
+	// Kernel setup
+	int threadsPerBlock = 256;
+	int numBlocks = (vectorSize + threadsPerBlock - 1) / threadsPerBlock;
+
+	// Kernel invocation code
+	saxpy_gpu<<<numBlocks, threadsPerBlock>>>(x_d, y_d, scale, vectorSize);
+	gpuErrchk(cudaPeekAtLastError());
+	gpuErrchk(cudaDeviceSynchronize());
+
+	// Kernel computation is done, copy device to host
+	gpuErrchk(cudaMemcpy(z, y_d, vectorBytes, cudaMemcpyDeviceToHost));
+
+	#ifndef DEBUG_PRINT_DISABLE
+		printf(" z = {");
+		for (int i = 0; i < 5; ++i) {
+			printf("%3.4f, ", z[i]);
+		}
+		printf(" ... }\n");
+	#endif
+
+	// Verify computation
+	int errorCount = verifyVector(x, y, z, scale, vectorSize);
+	std::cout << "Found " << errorCount << " / " << vectorSize << " errors \n";
+
+	// Deallocate hosts
+	free(x);
+	free(y);
+	free(z);
+
+	// Dellocate devices
+	gpuErrchk(cudaFree(x_d));
+	gpuErrchk(cudaFree(y_d));
 
 	return 0;
 }
