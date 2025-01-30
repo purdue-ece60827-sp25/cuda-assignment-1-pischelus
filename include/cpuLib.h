@@ -13,7 +13,7 @@
 	#include <cstdarg>
 	
 	// Uncomment this to suppress console output
-	// #define DEBUG_PRINT_DISABLE
+	#define DEBUG_PRINT_DISABLE
 
 	extern void dbprintf(const char* fmt...);
 

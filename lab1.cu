@@ -14,6 +14,8 @@
 #include "cpuLib.h"
 #include "cudaLib.cuh"
 
+#define DEBUG_PRINT_DISABLE
+
 int main(int argc, char** argv) {
 	std::string str;
 	int choice;

@@ -185,6 +185,26 @@ int runGpuMCPi (uint64_t generateThreadCount, uint64_t sampleSize,
 		return -1;
 	}
 
+	cudaDeviceProp prop;
+
+	int device;
+	cudaGetDevice(&device);
+	cudaGetDeviceProperties(&prop, device);
+
+	// #2 in submission checks - device properties, threadblocks, grid dimensions
+	#ifndef DEBUG_PRINT_DISABLE
+		std::cout << "Device: " << prop.name << std::endl;
+		std::cout << "Max threads per block: " 
+				<< prop.maxThreadsPerBlock << " x " 
+				<< prop.maxThreadsPerBlock << " x " 
+				<< prop.maxThreadsPerBlock << std::endl;
+		std::cout << "Max grid size: " 
+				<< prop.maxGridSize[0] << " x " 
+				<< prop.maxGridSize[1] << " x " 
+				<< prop.maxGridSize[2] << std::endl
+				<< std::endl;
+	#endif  
+
 	auto tStart = std::chrono::high_resolution_clock::now();
 		
 	float approxPi = estimatePi(generateThreadCount, sampleSize, 
@@ -245,6 +265,13 @@ double estimatePi(uint64_t generateThreadCount, uint64_t sampleSize,
 
 	approxPi = ((double)totalHitCount / sampleSize) / generateThreadCount;
 	approxPi = approxPi * 4.0f;
+
+	// Deallocate host
+	free(totals);
+
+	// Deallocate devices
+	gpuErrchk(cudaFree(hits_d));
+	gpuErrchk(cudaFree(totals_d));
 
 	return approxPi;
 }

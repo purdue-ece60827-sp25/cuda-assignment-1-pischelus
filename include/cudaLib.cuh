@@ -9,7 +9,7 @@
 	#include <curand_kernel.h>
 
 	// Uncomment this to suppress console output
-	// #define DEBUG_PRINT_DISABLE
+	#define DEBUG_PRINT_DISABLE
 
 	#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 	extern inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true);
